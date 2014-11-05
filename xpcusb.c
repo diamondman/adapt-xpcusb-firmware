@@ -31,6 +31,7 @@
 #define VER_CPLD_FW 1
 #define VER_0x0400 2
 
+#define GLEAR_GPIF() CLEAR_GPIF(); //Fix till pull request for fx2lib is taken
 #define SET_TRANSFER_COUNT(bak0, bak1, bak2, bak3)	\
   SYNCDELAY4;						\
   GPIFTCB0 = bak0;					\
@@ -199,8 +200,8 @@ BOOL handle_xilinxcommand(){
 
 
 void gpifwf_isr() __interrupt GPIFWF_ISR {
-  gpif_interrupted = TRUE;
   CLEAR_GPIFWF();
+  gpif_interrupted = TRUE;
   gpiftcb0_bak = GPIFTCB0;
   gpiftcb1_bak = GPIFTCB1;
   gpiftcb2_bak = GPIFTCB2;
