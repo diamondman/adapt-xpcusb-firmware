@@ -87,11 +87,21 @@ void process_xc_get_version(){
     }
   case VER_CPLD_FW:
     {
-      //TODO make actually get CPLD FW version
-      EP0BUF[0] = 0x00;
-      EP0BUF[1] = 0x00;
+      BYTE g_data;
+      IOA &= 0x7F;
+      IOC = 0x41;
+      OEE |= 4;
+      IOE |= 4;
+
+      g_data = XGPIFSGLDATLX;
+
+      EP0BUF[0] = XGPIFSGLDATLNOX;
+      EP0BUF[1] = XGPIFSGLDATH;
       EP0BCH=0;
       EP0BCL=2;
+
+      OEE &= 0xFB;
+      IOE &= 0xFB;
       break;
     }
   case VER_0x0400:
