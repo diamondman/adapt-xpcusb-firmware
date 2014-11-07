@@ -4,6 +4,7 @@
 #include <fx2macros.h>
 //#include <serial.h>
 #include <delay.h>
+#include <fx2ints.h>
 #include <autovector.h>
 #include <setupdat.h>
 #include <eputils.h>
@@ -64,6 +65,7 @@ __sbit __at 0x80 + 7 CPLD_EXTEND;
 
 volatile __bit got_sud;
 volatile __bit gpif_interrupted;
+volatile __bit dosuspend;
 volatile uint8_t jtag_speed_mode;
 volatile uint32_t __data transfer_bit_count;
 volatile uint8_t __data gpiftcb0_bak;
@@ -209,6 +211,15 @@ void gpifwf_isr() __interrupt GPIFWF_ISR {
   GPIFABORT = 0xFF;
 }
 
+void suspend_isr() __interrupt SUSPEND_ISR {
+  dosuspend=TRUE;
+  CLEAR_SUSPEND();
+}
+
+void resume_isr() __interrupt RESUME_ISR {
+ CLEAR_RESUME();
+}
+
 // copied routines from setupdat.h
 BOOL handle_get_descriptor() {
   return FALSE;
@@ -289,12 +300,15 @@ void init(){
   //sio0_init(57600); //Enable serial. Has been useful.
   CKCON &= 0xF8; //Make memory access 2 cycles TRM page 272
 
+  ENABLE_RESUME();
   USE_USB_INTS();
   ENABLE_SUDAV();
-  USE_GPIF_INTS();
+  ENABLE_SUSPEND();
   ENABLE_HISPEED();
   ENABLE_USBRESET();
+  USE_GPIF_INTS();
   ENABLE_GPIFWF();
+
 
   //REVCTL = 0x03; //They say this is necessary but it just breaks all out endpoints even with priming.
   SYNCDELAY;
@@ -352,17 +366,46 @@ void main() {
   got_sud=FALSE;
   jtag_speed_mode = 0;
   jtag_action = 0;
+  dosuspend = FALSE;
 
   init();
 
   while(TRUE) {
     IOA = (IOA&0xFC)|(IOA&4 ? 1:2); // set leds
     //make this reject control messages if in bulk wait
+    if (dosuspend){
+      dosuspend = FALSE;
+
+      //TURN EVERYTHING OFF
+      OEA = 0x0B;
+      IOA &= 0xF0; //Disable leds and line sense, raise CPLD pins
+      OEC = 0;
+      OEE = 0;
+
+      WAKEUPCS |= bmWU|bmWU2; // make sure ext wakeups are cleared
+      SUSPEND=1;
+      PCON |= 1;
+      SYNCDELAY;
+      SYNCDELAY;
+      
+      //TURN EVERYTHING BACK ON
+      PORTACFG = 0;
+      OEA = 0xFB;
+      IOA = 8;
+      PORTCCFG = 0;
+      OEC = 0xFF;
+      IOC = 0;
+      PORTECFG = 0;
+      OEE = 0xD8;
+
+    }
+
     if ( got_sud ) {
+      got_sud = FALSE;
       if (jtag_action != 0)
         STALLEP0();
-      handle_setupdata();
-      got_sud = FALSE;
+      else
+	handle_setupdata();
     }
 
     if (jtag_action == 1){// && !(EP2FIFOFLGS & 2)){
