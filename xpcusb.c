@@ -160,14 +160,33 @@ BOOL handle_xilinxcommand(){
 	
       return TRUE;
     }
-/*case XC_WRITE_JTAG_SINGLE:
+  case XC_WRITE_JTAG_SINGLE:
     {
+      IOA &= 0x7F;
+      IOC = 0x81;
+      XGPIFSGLDATLX = SETUPDAT[4];
       return TRUE;
     }
   case XC_READ_JTAG_SINGLE:
     {
+      BYTE g_data;
+      IOA &= 0x7F;
+      IOC = 0x41;
+      IOE &= 4;
+
+      g_data = XGPIFSGLDATLX;
+      g_data = XGPIFSGLDATLNOX;
+
+      if(IOA&4){
+	EP0BUF[0] = XGPIFSGLDATLNOX | 0x40;
+      }else{
+	EP0BUF[0] = XGPIFSGLDATLNOX & 0xBF;
+      }
+
+      EP0BCH=0;
+      EP0BCL=1;
       return TRUE;
-    }*/
+    }
   case XC_RET_CONSTANT:
     {
       EP0BUF[0] = 0xB5;
