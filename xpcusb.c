@@ -73,6 +73,7 @@ volatile uint8_t __data gpiftcb2_bak;
 volatile uint8_t __data gpiftcb3_bak;
 volatile uint8_t __data low2bits;
 volatile uint8_t __data jtag_action;
+volatile __bit cpld_upgrade_mode;
 
 void process_xc_get_version(){
   switch (SETUPDAT[4]){
@@ -162,27 +163,50 @@ BOOL handle_xilinxcommand(){
     }
   case XC_WRITE_JTAG_SINGLE:
     {
-      IOA &= 0x7F;
-      IOC = 0x81;
-      XGPIFSGLDATLX = SETUPDAT[4];
+      if(cpld_upgrade_mode){
+	BYTE val = 0;
+	if(SETUPDAT[4]&1){ //TDI
+	  val |= 0x40;
+	}else{
+	  val &= 0xBF;
+	}
+	if(SETUPDAT[4]&2){ //TMS
+	  val |= 0x10;
+	}else{
+	  val &= 0xEF;
+	}
+	if(SETUPDAT[4]&4){ //TCK
+	  val |= 8;
+	}else{
+	  val &= 0xF7;
+	}
+	IOE = val;
+      }else{
+	IOA &= 0x7F;
+	IOC = 0x81;
+	XGPIFSGLDATLX = SETUPDAT[4];
+      }
       return TRUE;
     }
   case XC_READ_JTAG_SINGLE:
     {
       BYTE g_data;
-      IOA &= 0x7F;
-      IOC = 0x41;
-      IOE &= 4;
-
-      g_data = XGPIFSGLDATLX;
-      g_data = XGPIFSGLDATLNOX;
-
-      if(IOA&4){
-	EP0BUF[0] = XGPIFSGLDATLNOX | 0x40;
+      if(cpld_upgrade_mode){
+	EP0BUF[0] = (IOE >> 5) & 1;
       }else{
-	EP0BUF[0] = XGPIFSGLDATLNOX & 0xBF;
+	IOA &= 0x7F;
+	IOC = 0x41;
+	IOE &= 4;
+	
+	g_data = XGPIFSGLDATLX;
+	g_data = XGPIFSGLDATLNOX;
+	
+	if(IOA&4){
+	  EP0BUF[0] = XGPIFSGLDATLNOX | 0x40;
+	}else{
+	  EP0BUF[0] = XGPIFSGLDATLNOX & 0xBF;
+	}
       }
-
       EP0BCH=0;
       EP0BCL=1;
       return TRUE;
@@ -200,11 +224,27 @@ BOOL handle_xilinxcommand(){
       process_xc_get_version();
       return TRUE;
     }
-/*case XC_SET_CPLD_UPGRADE:
+  case XC_SET_CPLD_UPGRADE:
     {
+      if(SETUPDAT[4] == 0){
+	cpld_upgrade_mode = FALSE;
+	PORTACFG = 0;
+	OEA = 0xFB;
+	IOA = 8;
+	PORTCCFG = 0;
+	OEC = 0xFF;
+	IOC = 0;
+	PORTECFG = 0;
+	OEE = 0xD8;
+      }else if(SETUPDAT[4] == 1){
+	cpld_upgrade_mode = TRUE;
+	OEA = 0x0A;
+	OEC = 0;
+	OEE = 0x58;
+      }
       return TRUE;
     }
-  case XC_UNKNOWN:
+  /*case XC_UNKNOWN:
     {}
   case XC_JTAG_COMPLEX:
     {}
@@ -406,11 +446,16 @@ void main() {
   got_sud=FALSE;
   jtag_action = 0;
   dosuspend = FALSE;
+  cpld_upgrade_mode = FALSE;
 
   init();
 
   while(TRUE) {
-    IOA = (IOA&0xFC)|(IOA&4 ? 1:2); // set leds
+    if (!cpld_upgrade_mode){
+      IOA = (IOA&0xFC)|(IOA&4 ? 1:2); // set leds
+    }else{
+      IOA = (IOA&0xFC)|2;
+    }
     //make this reject control messages if in bulk wait
     if (dosuspend){
       dosuspend = FALSE;
@@ -428,6 +473,7 @@ void main() {
       SYNCDELAY;
       
       //TURN EVERYTHING BACK ON
+      cpld_upgrade_mode = FALSE;
       PORTACFG = 0;
       OEA = 0xFB;
       IOA = 8;
