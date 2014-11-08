@@ -66,7 +66,6 @@ __sbit __at 0x80 + 7 CPLD_EXTEND;
 volatile __bit got_sud;
 volatile __bit gpif_interrupted;
 volatile __bit dosuspend;
-volatile uint8_t jtag_speed_mode;
 volatile uint32_t __data transfer_bit_count;
 volatile uint8_t __data gpiftcb0_bak;
 volatile uint8_t __data gpiftcb1_bak;
@@ -146,7 +145,19 @@ BOOL handle_xilinxcommand(){
     }
   case XC_SET_JTAG_SPEED:
     {
-      jtag_speed_mode = SETUPDAT[4];
+      /*INDEX | BASE_DELAY
+         0    | 2
+	 1    | 4
+	 2    | 8
+	 3    | 16
+	 4    | 32
+       */
+      BYTE arg = (SETUPDAT[4] & 0x0F);
+      BYTE base_delay = 2 << (arg <= 4?arg:4);
+
+      *(&GPIF_WAVE_DATA+0x61) = base_delay;
+      *(&GPIF_WAVE_DATA+0x62) = base_delay-1;
+	
       return TRUE;
     }
 /*case XC_WRITE_JTAG_SINGLE:
@@ -374,7 +385,6 @@ void init(){
 
 void main() {
   got_sud=FALSE;
-  jtag_speed_mode = 0;
   jtag_action = 0;
   dosuspend = FALSE;
 
