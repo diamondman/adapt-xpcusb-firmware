@@ -48,7 +48,7 @@ ENDPOINT_TYPE_INT=3
 ; in code memory otherwise SUDPTRH:L don't work right
     .area	DSCR_AREA	(CODE)
 
-_dev_dscr:  ;Common to both
+_dev_dscr:  
 	.db	dev_dscr_end-_dev_dscr    ; len
 	.db	DSCR_DEVICE_TYPE		  ; type
 	.dw	0x0002					  ; usb 2.0
@@ -65,7 +65,7 @@ _dev_dscr:  ;Common to both
 	.db	1			              ; n configurations
 dev_dscr_end:
 
-_dev_qual_dscr: ;Common to both
+_dev_qual_dscr: 
 	.db	dev_qualdscr_end-_dev_qual_dscr
 	.db	DSCR_DEVQUAL_TYPE
 	.dw	0x0002                              ; usb 2.0
@@ -84,10 +84,10 @@ _highspd_dscr:
 	.db	(highspd_dscr_realend-_highspd_dscr) % 256 ; total length of config lsb
 	.db	(highspd_dscr_realend-_highspd_dscr) / 256 ; total length of config msb
 	.db	1								 ; n interfaces
-	.db	2								 ; config number
+	.db	1								 ; config number
 	.db	0								 ; config string
 	.db	0x80                             ; attrs = bus powered, no wakeup
-	.db	0x25                             ; max power = 100ma
+	.db	0x1E                             ; max power = 75ma
 highspd_dscr_end:
 
 ; all the interfaces next 
@@ -132,10 +132,10 @@ _fullspd_dscr:
 	.db	(fullspd_dscr_realend-_fullspd_dscr) % 256 ; total length of config lsb
 	.db	(fullspd_dscr_realend-_fullspd_dscr) / 256 ; total length of config msb
 	.db	1								 ; n interfaces
-	.db	3								 ; config number
+	.db	2								 ; config number
 	.db	0								 ; config string
 	.db	0x80                             ; attrs = bus powered, no wakeup
-	.db	0x1E                             ; max power = 100ma
+	.db	0x1E                             ; max power = 75ma
 fullspd_dscr_end:
 
 ; all the interfaces next 
